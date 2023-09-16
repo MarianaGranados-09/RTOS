@@ -49,7 +49,41 @@ void System_Init(void)
 	   UART1_Init();
 }
 
+void TIM2_Init(void)
+{
+   /* Habilitar seniales de reloj */
+   __HAL_RCC_TIM2_CLK_ENABLE();
+   __HAL_RCC_GPIOA_CLK_ENABLE();
 
+   /* 2. Configuracion de bajo nivel */
+   GPIO_InitTypeDef qei_pin = {0};
+   qei_pin.Pin = GPIO_PIN_0 | GPIO_PIN_1;
+   qei_pin.Mode = GPIO_MODE_AF_OD;
+   qei_pin.Pull = GPIO_PULLUP;
+   qei_pin.Alternate = GPIO_AF1_TIM2;
+   HAL_GPIO_Init(GPIOA, &qei_pin);
+
+   /* 3. Habilitar interrupcion */
+
+
+   /* 4. Configuracion de alto nivel */
+   htim2.Instance = TIM2;
+   //htim2.Init.CounterMode = TIM_COUNTERMODE_UP; //default mode
+   htim2.Init.Prescaler = 0; //100kHz / 100 - cada 1ms se incrementa la cuenta del timer
+   htim2.Init.Period = 0xFFFFFFFF;
+
+   TIM_Encoder_InitTypeDef qei_config = {0};
+   qei_config.EncoderMode = TIM_ENCODERMODE_TI12;
+   qei_config.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+   qei_config.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+
+   if(HAL_TIM_Encoder_Init(&htim2, &qei_config) != HAL_OK)
+	   Error_Handler();
+
+
+   /* 5. Arrancar el periferico */
+   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_1 | TIM_CHANNEL_2); //IT for interrupts
+}
 
 
 
