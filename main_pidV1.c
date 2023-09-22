@@ -23,12 +23,15 @@ uint8_t buffer[50];
 
 //pid constants
 long kp = 4; //proportional gain
-float ki = 0.001; //integral gain
-float kd = 0.1; //derivative gain
+float ki = 0.8; //integral gain
+float kd = 0.5; //derivative gain
 
 //pid vars
 long error = 0;
-float integral = 0;
+long ab_error = 0;
+long error_dif = 0;
+float integral = 0.0;
+float diferen = 0.0;
 float prev_error = 0;
 
 long pid_output = 0;
@@ -79,14 +82,33 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		HAL_UART_Transmit(&huart1, (uint8_t*)buffer2, strlen((char*)buffer2), HAL_MAX_DELAY);
 
 		error = setpoint - current_pos;
+		if(error < 0)
+		{
+			ab_error = -error;
+		}
+		else{
+			ab_error = error;
+		}
+
+		error_dif = ab_error - prev_error;
+		//bound condition to help motor stabilize
+		if((current_pos - 10) < setpoint && setpoint < (current_pos + 10))
+			{
+				error = 0;
+				HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
+			}
+
 		//if(error < 0)
 		//	error = -error;
 		snprintf((char*)buffer1, sizeof(buffer1), "Error: %ld\r\n", error);
 		HAL_UART_Transmit(&huart1, (uint8_t*)buffer1, strlen((char*)buffer1), HAL_MAX_DELAY);
 
-		//integral += ki * error;
-		//pid_output = (kp*error + ki*integral + kd*(error-prev_error)) / 1000;
-		pid_output = (kp*error)/ 1000;
+		integral += (ki * ab_error);
+		diferen = (kd*error_dif);
+		pid_output = (kp*error + ki*integral + diferen) / 1000;
+		//pid_output = ((kp*error)) / 1000; //+integral+diferen)/ 1000;
+
 
 		//limitar salida del pid a 0-999
 		if(pid_output > 999)
@@ -106,18 +128,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
 			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_SET);
 		}
-		/*if(setpoint == current_pos)
-		{
-			pid_output = 0;
-			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);
-		}*/
 
 		//prev_error = error;
 		//convertir salida de pid a valor de pwm
-		pwm_duty = pid_output;
+		pwm_duty = pid_output / 1;
 		if(pwm_duty < 0)
 			pwm_duty = -pwm_duty;
+
+		prev_error = error;
 
 		__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, pwm_duty);
 
