@@ -24,9 +24,9 @@ uint8_t byte, idx = 0;
 uint8_t buffer[50];
 
 //pid constants
-long kp = 4; //proportional gain
-long ki = 0.04; //integral gain
-long kd = 0.91; //derivative gain
+long kp = 6; //proportional gain
+long ki = 0.7;//integral gain
+long kd = 0.48; //derivative gain
 
 //pid vars
 long error = 0;
@@ -93,17 +93,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		HAL_UART_Transmit(&huart1, (uint8_t*)buffer1, strlen((char*)buffer1), HAL_MAX_DELAY);
 
 		integral += (abs_error*PID_SAMPLE_TIME_MS) / 1000.0;
-		if(integral > 100)
-			integral = 100;
+		if(integral > 50)
+			integral = 50;
 		deriv = (abs_error - prev_error) / (PID_SAMPLE_TIME_MS / 1000.0);
 
 		//pid_output = (kp*error + ki*integral + kd*(error-prev_error)) / 1000;
 		pid_output = ((kp*abs_error) + integral + deriv) / 1000;
 
-		if(pid_output > 999)
-			pid_output = 999;
-		if(pid_output < - 999)
-			pid_output = -999;
+		if(pid_output > 100)
+			pid_output = 100;
+		if(pid_output < - 100)
+			pid_output = -100;
 
 		if(setpoint < current_pos)
 		{
