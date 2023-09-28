@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define PID_SAMPLE_TIME_MS     500
+#define PID_SAMPLE_TIME_S		0.001
 
 
 //extender definicion a archivo main_init.c
@@ -24,23 +24,25 @@ uint8_t byte, idx = 0;
 uint8_t buffer[50];
 
 //pid constants
-long kp = 6; //proportional gain
-long ki = 0.7;//integral gain
-long kd = 0.48; //derivative gain
+long kp = 14; //proportional gain
+float ki = 0.1;//0.1;//integral gain
+float kd = 0.12;//0.03;//1.3; //derivative gain
+
+long samples = 0;
 
 //pid vars
 long error = 0;
 long abs_error = 0;
-float integral = 0;
-float deriv = 0;
-float prev_error = 0;
+float integral = 0.0;
+float deriv = 0.0;
+float prev_error = 0.0;
 
-long pid_output = 0;
+float pid_output = 0.0;
 uint32_t pwm_duty = 0;
 
 long current_pos = 0;
 
-uint8_t buflen, buffer1[32], buffer2[32], buffer3[40], buffer4[40], buffer5[40], buffer6[40];
+uint8_t buflen, buffer_len[40];
 
 
 
@@ -76,12 +78,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		//3. calculate output (0 to 999)
 		current_pos = __HAL_TIM_GET_COUNTER(&htim2);
 
-		snprintf((char*)buffer, sizeof(buffer), "Setpoint: %ld\r\n", setpoint);
-		HAL_UART_Transmit(&huart1, (uint8_t*)buffer, strlen((char*)buffer), HAL_MAX_DELAY);
-
-		snprintf((char*)buffer2, sizeof(buffer2), "Current pos: %ld\r\n", current_pos);
-		HAL_UART_Transmit(&huart1, (uint8_t*)buffer2, strlen((char*)buffer2), HAL_MAX_DELAY);
-
 		error = setpoint - current_pos;
 		if(error < 0)
 			abs_error = -error;
@@ -89,16 +85,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			abs_error = error;
 
 
-		snprintf((char*)buffer1, sizeof(buffer1), "Error: %ld\r\n", error);
-		HAL_UART_Transmit(&huart1, (uint8_t*)buffer1, strlen((char*)buffer1), HAL_MAX_DELAY);
-
-		integral += (abs_error*PID_SAMPLE_TIME_MS) / 1000.0;
-		if(integral > 50)
-			integral = 50;
-		deriv = (abs_error - prev_error) / (PID_SAMPLE_TIME_MS / 1000.0);
+		integral += (abs_error*PID_SAMPLE_TIME_S*ki);
+		//anti wind up, integral limits
+		/*if(integral > 100)
+			integral = 100;*/
+		deriv = (abs_error - prev_error) / PID_SAMPLE_TIME_S;
 
 		//pid_output = (kp*error + ki*integral + kd*(error-prev_error)) / 1000;
-		pid_output = ((kp*abs_error) + integral + deriv) / 1000;
+		pid_output = (kp*abs_error + integral + kd*deriv) / 1000;
 
 		if(pid_output > 100)
 			pid_output = 100;
@@ -118,7 +112,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_SET);
 		}
 
-		if((current_pos-10 < setpoint) && (setpoint < current_pos + 10))
+		if((current_pos-5 < setpoint) && (setpoint < current_pos + 5))
 		{
 			error = 0;
 			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
@@ -130,12 +124,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			pwm_duty = -pwm_duty;
 
 
-		prev_error = error;
+		prev_error = abs_error;
+		/*if(prev_error < 0)
+			prev_error = -prev_error;*/
 
 		__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, pwm_duty);
+		if(samples < 100)
+		{
+			buflen = sprintf((char*)buffer_len, "setpoint: %li current pos: %li error: %li\r\n", setpoint, current_pos, error);
+			HAL_UART_Transmit(&huart1, buffer_len, buflen, HAL_MAX_DELAY);
+			//samples = 0;
+		}
 
-		snprintf((char*)buffer3, sizeof(buffer2), "pid_output: %li\r\n", pid_output);
-		HAL_UART_Transmit(&huart1, (uint8_t*)buffer3, strlen((char*)buffer3), HAL_MAX_DELAY);
+		samples++;
 	}
 
 }
@@ -157,6 +158,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 
 	setpoint = strtol((char*)buffer, NULL, 10); //convert string to long int
+	samples = 0;
 	//memset(buffer, 0, sizeof(buffer));
 
 	HAL_UART_Receive_IT(&huart1, &byte, 1); //start next receive
