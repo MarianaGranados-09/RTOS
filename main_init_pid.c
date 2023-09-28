@@ -5,6 +5,16 @@ extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim4;
 
+void System_Init(void)
+{
+	   HAL_Init();
+	   Clock_Init();
+	   GPIO_Init();
+	   UART1_Init();
+	   TIM3_Init();
+	   TIM2_Init();
+	   TIM4_Init();
+}
 
 
 void Clock_Init(void)
@@ -38,18 +48,6 @@ void Clock_Init(void)
       Error_Handler();
 }
 
-
-void System_Init(void)
-{
-	   HAL_Init();
-	   Clock_Init();
-	   GPIO_Init();
-	   UART1_Init();
-	   TIM3_Init();
-	   TIM2_Init();
-	   TIM4_Init();
-}
-
 //setup timer3 to trigger the interrput each 1 ms
 void TIM3_Init(void)
 {
@@ -68,13 +66,13 @@ void TIM3_Init(void)
 	////UI_Freq = CK_CNT //(1 + Period)
 	//htim3.Init.Period = 250; //hasta donde llega el contador antes de desbordarse
 
-	htim3.Init.Period = 99; //period for 1 ms interrupt (100kHz / 1000 = 100Hz)
+	htim3.Init.Period = 100; //period for 1 ms interrupt (100kHz / 1000 = 100Hz)
 	if(HAL_TIM_Base_Init(&htim3) != HAL_OK)
 		Error_Handler();
 
 	//5. Arrancar el periferico
+	HAL_TIM_Base_Init(&htim3);
 	HAL_TIM_Base_Start_IT(&htim3); //Apuntador al periferico
-	__HAL_TIM_ENABLE_IT(&htim3, TIM_IT_UPDATE);
 }
 
 void TIM4_Init(void)
@@ -95,17 +93,29 @@ void TIM4_Init(void)
 
 	htim4.Instance = TIM4; //miembro que va a asociar a que timer va
 	//CK_CNT = CK_PSC // (1 + Prescaler)
-	htim4.Init.Prescaler = 0; //cada 1000 cuentas se resetea 16M/16k
+	htim4.Init.Prescaler = 8; //cada 1000 cuentas se resetea 16M/16k
 	//16M/7999 = 2k
 	////UI_Freq = CK_CNT //(1 + Period)
 	//htim3.Init.Period = 250; //hasta donde llega el contador antes de desbordarse
 
-	htim4.Init.Period = 100; //1kHz
+	htim4.Init.Period = 200; //1kHz
 	//CAMBIAR PARA 1 SEG ENC, 1 SEG APA. 0.5Hz
 	//UI_Freq = CLK_PSC / (Prescaler * Period)
 	HAL_TIM_Base_Init(&htim4); //cargarle al timer la configuracion
 
 	//5. Running the peripheral
+
+	TIM_OC_InitTypeDef oc_config = {0};
+	oc_config.OCMode = TIM_OCMODE_PWM1;
+	oc_config.OCNPolarity = TIM_OCPOLARITY_HIGH;
+	oc_config.Pulse = 0;//when timer reaches this value, the signal will alternate //50%
+
+	if(HAL_TIM_PWM_ConfigChannel(&htim4, &oc_config, TIM_CHANNEL_1) != HAL_OK) //loading pin configuration for ch1
+	{
+		Error_Handler();
+	}
+
+	HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
 
 }
 
@@ -144,21 +154,23 @@ void GPIO_Init(void)
 {
    /* Configurar pin PA5 como salida digital */
    __HAL_RCC_GPIOA_CLK_ENABLE();
+   __HAL_RCC_GPIOC_CLK_ENABLE();
 
    GPIO_InitTypeDef led_pin = {0};
    led_pin.Pin = GPIO_PIN_5;
    led_pin.Mode = GPIO_MODE_OUTPUT_PP;
    HAL_GPIO_Init(GPIOA, &led_pin);
 
-   GPIO_InitTypeDef in1_driver = {0};
-   in1_driver.Pin = GPIO_PIN_3;
-   in1_driver.Mode = GPIO_MODE_OUTPUT_PP;
-   HAL_GPIO_Init(GPIOA, &in1_driver);
+   GPIO_InitTypeDef led_debug = {0};
+   led_debug.Pin = GPIO_PIN_4 | GPIO_PIN_5;
+   led_debug.Mode = GPIO_MODE_OUTPUT_PP;
+   HAL_GPIO_Init(GPIOC, &led_debug);
 
-   GPIO_InitTypeDef in2_driver = {0};
-   in2_driver.Pin = GPIO_PIN_2;
-   in2_driver.Mode = GPIO_MODE_OUTPUT_PP;
-   HAL_GPIO_Init(GPIOA, &in2_driver);
+
+   GPIO_InitTypeDef in_driver = {0};
+   in_driver.Pin =  GPIO_PIN_0 | GPIO_PIN_1;
+   in_driver.Mode = GPIO_MODE_OUTPUT_PP;
+   HAL_GPIO_Init(GPIOC, &in_driver);
 
 }
 
@@ -182,8 +194,8 @@ void TIM2_Init(void)
    /* 4. Configuracion de alto nivel */
    htim2.Instance = TIM2;
    //htim2.Init.CounterMode = TIM_COUNTERMODE_UP; //default mode
-   htim2.Init.Prescaler = 999;
-   htim2.Init.Period = 999;
+   htim2.Init.Prescaler = 0; //100kHz / 100 - cada 1ms se incrementa la cuenta del timer
+   htim2.Init.Period = 0xFFFFFFFF;
 
    TIM_Encoder_InitTypeDef qei_config = {0};
    qei_config.EncoderMode = TIM_ENCODERMODE_TI12;
