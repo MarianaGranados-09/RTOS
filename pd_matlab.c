@@ -28,8 +28,8 @@ uint8_t buffer[50];
 //float ki = 0.1;//0.1;//integral gain
 //float kd = 0.12;//0.03;//1.3; //derivative gain
 
-float Td = 0.025921;
-float kp = 13.9211;
+float Td = 0.035049;
+float kp = 71.6768;
 
 long samples = 0;
 
@@ -134,9 +134,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			prev_error = -prev_error;*/
 
 		__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, pwm_duty);
-		if(samples < 100)
+		if(samples < 1000)
 		{
-			buflen = sprintf((char*)buffer_len, "setpoint: %li current pos: %li error: %li\r\n", setpoint, current_pos, error);
+			buflen = sprintf((char*)buffer_len, "%li %li\r\n", setpoint, current_pos);
 			HAL_UART_Transmit(&huart1, buffer_len, buflen, HAL_MAX_DELAY);
 			//samples = 0;
 		}
