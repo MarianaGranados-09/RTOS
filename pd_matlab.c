@@ -25,18 +25,18 @@ uint8_t buffer[50];
 
 //pid constants
 //long kp = 15; //proportional gain
-//float ki = 0.1;//0.1;//integral gain
+float ki = 0.3;//0.1;//integral gain
 //float kd = 0.12;//0.03;//1.3; //derivative gain
 
-float Td = 0.035049;
-float kp = 71.6768;
+float Td = 0.026791;
+float kp = 71.0921;
 
 long samples = 0;
 
 //pid vars
 long error = 0;
 long abs_error = 0;
-//float integral = 0.0;
+float integral = 0.0;
 float deriv = 0.0;
 float prev_error = 0.0;
 
@@ -88,7 +88,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			abs_error = error;
 
 
-		//integral += (abs_error*PID_SAMPLE_TIME_S*ki);
+		integral += (abs_error*PID_SAMPLE_TIME_S*ki);
 		//anti wind up, integral limits
 		/*if(integral > 100)
 			integral = 100;*/
@@ -97,7 +97,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		//pid_output = (kp*error + ki*integral + kd*(error-prev_error)) / 1000;
 		//pid_output = (kp*abs_error + integral + kd*deriv) / 1000;
 
-		pid_output = (kp*abs_error + Td*deriv) / 1000;
+		pid_output = (kp*abs_error + Td*deriv + integral) / 1000;
 
 		if(pid_output > 100)
 			pid_output = 100;
@@ -137,6 +137,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		if(samples < 1000)
 		{
 			buflen = sprintf((char*)buffer_len, "%li %li\r\n", setpoint, current_pos);
+			//buflen = sprintf((char*)buffer_len, "%li,\r\n", setpoint);
 			HAL_UART_Transmit(&huart1, buffer_len, buflen, HAL_MAX_DELAY);
 			//samples = 0;
 		}
