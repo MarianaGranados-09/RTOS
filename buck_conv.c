@@ -12,19 +12,19 @@ TIM_HandleTypeDef htim3 = {0};
 UART_HandleTypeDef huart1 = {0};
 ADC_HandleTypeDef hadc1 = {0};
 
-uint8_t buflen, buffer1[32];
+uint8_t buflen, buffer1[64];
 
 char buffer[BUFFER_SIZE];
 
 volatile uint8_t idx = 0;
 char byte;
 
-uint16_t adc_value, i, value, duty = 0, i;
+uint16_t adc_value = 0, i, value, duty = 0;
 uint32_t suma;
 
 float Vout = 0.0;
 float V_Res = 0.0;
-float Vref = 0.0;
+float Vref = 5.0;
 
 char mess[] = "UART startup\r\n";
 
@@ -53,15 +53,16 @@ int main (void)
 			}
 
 		value = suma >> 2;
-		V_Res = value * 0.0008056;
-		Vout = V_Res * 5.54545;
+		//V_Res = value * 0.0008056;
+		//Vout = V_Res * 5.54545;
+
 
 		//adc_value = HAL_ADC_GetValue(&hadc1);
 
-		buflen = sprintf((char*)buffer, "Vref: %.2f, Vout: %.2f, Vres: .2%f\r\n",Vref, Vout, V_Res);
+		buflen = sprintf((char*)buffer1, "Vref: %0.2f, adc: %i, Vres: %0.2f Vout: %0.2f\r\n",Vref, value, V_Res, Vout);
 		//buflen = sprintf((char*)buffer1, "%.2f \r\n", Vref);
 		HAL_UART_Transmit(&huart1, buffer1, buflen, HAL_MAX_DELAY);
-		HAL_Delay(50);
+		//HAL_Delay(50);
 	}
 	return 0;
 }
@@ -73,6 +74,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	//que timer se manda llamar dependiendo de la actividad
 	if(htim -> Instance == TIM3) //en este caso el TIM3 es el que genera la interrupcion
 	{
+		value = HAL_ADC_GetValue(&hadc1);
+		V_Res = value * 0.0008056;
+		Vout = V_Res * 4.9454545;
+
 		if(Vref > Vout)
 		{
 			if(duty < 450)
@@ -171,7 +176,7 @@ void TIM1_Init(void)
 	HAL_TIM_Base_Init(&htim1);
 
 	//uint32_t pulso = 207; //for 5 V output
-	uint32_t pulso = 450;
+	//uint32_t pulso = 0;
 
 	//Configuración del canal
 	TIM_OC_InitTypeDef oc_config = {0};
@@ -179,13 +184,13 @@ void TIM1_Init(void)
 	//oc_config.OCNPolarity = TIM_OCNPOLARITY_HIGH;
 	oc_config.OCPolarity = TIM_OCPOLARITY_HIGH;
 	//oc_config.OCNPolarity = TIM_OCNPOLARITY_LOW;
-	oc_config.Pulse = pulso;
+	oc_config.Pulse = 0;
 	if (HAL_TIM_OC_ConfigChannel(&htim1, &oc_config, TIM_CHANNEL_1) != HAL_OK)
 			Error_Handler();
 
 	TIM_BreakDeadTimeConfigTypeDef dead_time ={0};
 	dead_time.BreakState = TIM_BREAK_DISABLE;
-	dead_time.DeadTime = computeDeadTime(pulso);
+	dead_time.DeadTime = computeDeadTime(100);
 	if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &dead_time) != HAL_OK)
 		Error_Handler();
 
@@ -206,12 +211,12 @@ void TIM3_Init(void)
 	//4. Configuracion de alto nivel
 	htim3.Instance = TIM3; //miembro que va a asociar a que timer va
 	//CK_CNT = CK_PSC // (1 + Prescaler)
-	htim3.Init.Prescaler = 999;///4999;//999; //prescaler value for 100Mhz / (99 + 1) = 100kHz
+	htim3.Init.Prescaler = 4999;///4999;//999; //prescaler value for 100Mhz / (99 + 1) = 100kHz
 
 	////UI_Freq = CK_CNT //(1 + Period)
 	//htim3.Init.Period = 250; //hasta donde llega el contador antes de desbordarse
 
-	htim3.Init.Period = 99;//100; //period for 1 ms interrupt (100kHz / 1000 = 100Hz)
+	htim3.Init.Period = 1000;//100; //period for 1 ms interrupt (100kHz / 1000 = 100Hz)
 	if(HAL_TIM_Base_Init(&htim3) != HAL_OK)
 		Error_Handler();
 
@@ -256,6 +261,7 @@ void ADC1_Init(void)
 	ADC_ChannelConfTypeDef adc_chan = {0};
 	adc_chan.Channel = ADC_CHANNEL_0;
 	adc_chan.Rank = 1;
+	adc_chan.SamplingTime = ADC_SAMPLETIME_15CYCLES;
 	if(HAL_ADC_ConfigChannel(&hadc1, &adc_chan) != HAL_OK)
 		Error_Handler();
 
@@ -302,7 +308,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		HAL_UART_Transmit(&huart1, (uint8_t*)buffer, idx, HAL_MAX_DELAY);
 		Vref = atof(buffer);
 		idx = 0;
-		memset(buffer, 0, sizeof(buffer));
+		//memset(buffer, 0, sizeof(buffer));
 
 	}
 	else
@@ -342,6 +348,5 @@ void USART1_IRQHandler(void)
 	HAL_UART_IRQHandler(&huart1); //busca en los registros del periferico el motivo de la interrupcion
 	//llamar las funciones callback
 }
-
 
 
