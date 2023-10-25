@@ -29,7 +29,14 @@ int main(void)
 
    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
 
-   temperature = (((temp_msb << 8) | temp_lsb) >> 5) * 0.125;
+  // temperature = (((temp_msb << 3) + (temp_lsb >> 5)) * 0.25);
+   //temperature = (((temp_msb << 8) | temp_lsb) >> 3) * 0.25;
+   //temperature = (((float)temp_msb << 8) | (float)temp_lsb) * 0.25;
+   //Temp=((((DATARX[0]|DATARX[1]<<8)))>>3);               // Temperature Data Extraction
+   //Temp*=0.25;
+
+   temperature = (((temp_msb) | (temp_lsb << 8)) >> 3);
+   temperature*=0.25;
 
    buflen = sprintf((char*)buffer,"%0.2f\r\n",temperature);
    HAL_UART_Transmit(&huart2, buffer, buflen, HAL_MAX_DELAY);
@@ -48,7 +55,8 @@ int main(void)
 
 	      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
 
-	      temperature = (((temp_msb << 8) | temp_lsb) >> 3) * 0.25;
+	      temperature = (((temp_msb) | (temp_lsb << 8)) >> 3);
+	      temperature*=0.25;
 
 	      buflen = sprintf((char*)buffer,"%0.2f C\r\n",temperature);
 	      HAL_UART_Transmit(&huart2, buffer, buflen, HAL_MAX_DELAY);
@@ -87,9 +95,13 @@ void SPI1_Init(void)
 	hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB; //send the most significant bit first
 	hspi1.Init.Direction = SPI_DIRECTION_2LINES; //use two lines, transmit and receive
 	hspi1.Init.DataSize = SPI_DATASIZE_16BIT; //16-bit data stream
-	hspi1.Init.CLKPhase = SPI_PHASE_2EDGE; //also revise this parameter
-	hspi1.Init.CLKPolarity =  SPI_POLARITY_HIGH;
-	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+	hspi1.Init.CLKPhase = SPI_PHASE_1EDGE; //also revise this parameter
+	hspi1.Init.CLKPolarity =  SPI_POLARITY_LOW;
+	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+
+	hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+	hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+	hspi1.Init.CRCPolynomial = 7;
 
 	if(HAL_SPI_Init(&hspi1) != HAL_OK)
 			Error_Handler();
