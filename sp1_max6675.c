@@ -70,11 +70,8 @@ void SPI1_Init(void)
 	hspi1.Init.DataSize = SPI_DATASIZE_16BIT; //16-bit data stream
 	hspi1.Init.CLKPhase = SPI_PHASE_1EDGE; //also revise this parameter
 	hspi1.Init.CLKPolarity =  SPI_POLARITY_LOW;
-	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
 
-	hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-	hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-	hspi1.Init.CRCPolynomial = 7;
 
 	if(HAL_SPI_Init(&hspi1) != HAL_OK)
 			Error_Handler();
