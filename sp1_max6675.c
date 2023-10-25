@@ -22,7 +22,7 @@ int main(void)
    while (1)
        {
 
-	   	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+	      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
 
 	      HAL_SPI_Receive(&hspi1, temp_max6675, 1, HAL_MAX_DELAY);
 
