@@ -9,8 +9,7 @@ SPI_HandleTypeDef hspi1 = {0}; //spi1 handler
 
 //uint8_t buff_out[2] = {0x3A, 0xF5};
 
-uint8_t temp_msb;
-uint8_t temp_lsb;
+uint8_t temp_max6675[2];
 
 uint8_t buflen, buffer[32];
 
@@ -20,48 +19,22 @@ int main(void)
 {
    System_Init();
 
-   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
-
-   HAL_SPI_Transmit(&hspi1, (uint8_t*)0x00, 1, HAL_MAX_DELAY);
-   HAL_SPI_Receive(&hspi1, &temp_msb, 1, HAL_MAX_DELAY);
-   HAL_SPI_Transmit(&hspi1, (uint8_t*)0x01, 1, HAL_MAX_DELAY);
-   HAL_SPI_Receive(&hspi1, &temp_lsb, 1, HAL_MAX_DELAY);
-
-   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
-
-  // temperature = (((temp_msb << 3) + (temp_lsb >> 5)) * 0.25);
-   //temperature = (((temp_msb << 8) | temp_lsb) >> 3) * 0.25;
-   //temperature = (((float)temp_msb << 8) | (float)temp_lsb) * 0.25;
-   //Temp=((((DATARX[0]|DATARX[1]<<8)))>>3);               // Temperature Data Extraction
-   //Temp*=0.25;
-
-   temperature = (((temp_msb) | (temp_lsb << 8)) >> 3);
-   temperature*=0.25;
-
-   buflen = sprintf((char*)buffer,"%0.2f\r\n",temperature);
-   HAL_UART_Transmit(&huart2, buffer, buflen, HAL_MAX_DELAY);
-
-   HAL_Delay(1000);
-
    while (1)
        {
 
 	   	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
 
-	      HAL_SPI_Transmit(&hspi1, (uint8_t*)0x00, 1, HAL_MAX_DELAY);
-	      HAL_SPI_Receive(&hspi1, &temp_msb, 1, HAL_MAX_DELAY);
-	      HAL_SPI_Transmit(&hspi1, (uint8_t*)0x01, 1, HAL_MAX_DELAY);
-	      HAL_SPI_Receive(&hspi1, &temp_lsb, 1, HAL_MAX_DELAY);
+	      HAL_SPI_Receive(&hspi1, temp_max6675, 1, HAL_MAX_DELAY);
 
 	      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
 
-	      temperature = (((temp_msb) | (temp_lsb << 8)) >> 3);
+	      temperature = (( ( (temp_max6675[0] | temp_max6675[1]<<8) )) >>3);
 	      temperature*=0.25;
 
 	      buflen = sprintf((char*)buffer,"%0.2f C\r\n",temperature);
 	      HAL_UART_Transmit(&huart2, buffer, buflen, HAL_MAX_DELAY);
 
-	      HAL_Delay(1000);
+	      HAL_Delay(250);
 
        }
    return 0;
