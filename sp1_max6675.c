@@ -22,7 +22,7 @@ int main(void)
    while (1)
        {
 
-	      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+	   	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
 
 	      HAL_SPI_Receive(&hspi1, temp_max6675, 1, HAL_MAX_DELAY);
 
@@ -35,6 +35,12 @@ int main(void)
 	      HAL_UART_Transmit(&huart2, buffer, buflen, HAL_MAX_DELAY);
 
 	      HAL_Delay(250);
+
+	      /*
+	       * For data tx
+	      while(!(SPI1 -> SR & SPI_SR_TXE));
+	      SPI1 -> CR1 &= ~(SPI_CR1_SPE);
+	      */
 
        }
    return 0;
@@ -66,7 +72,7 @@ void SPI1_Init(void)
 	hspi1.Init.NSS = SPI_NSS_SOFT; //when using SOFT, it is necessary to set high and low the nss pin (pin_4) in the main func.
 	//hspi1.Init.NSS = SPI_NSS_HARD_INPUT; //this line changes when transmitting or receiving data, OUTPUT OR INPUT, in each case
 	hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB; //send the most significant bit first
-	hspi1.Init.Direction = SPI_DIRECTION_2LINES; //use two lines, transmit and receive
+	hspi1.Init.Direction = SPI_DIRECTION_2LINES; //use two lines, transmit and receive, although this is the default config.
 	hspi1.Init.DataSize = SPI_DATASIZE_16BIT; //16-bit data stream
 	hspi1.Init.CLKPhase = SPI_PHASE_1EDGE; //also revise this parameter
 	hspi1.Init.CLKPolarity =  SPI_POLARITY_LOW;
@@ -162,7 +168,7 @@ void GPIO_Init(void)
    HAL_GPIO_Init(GPIOA, &led_pin);
 
    //only necessary when using the SOFT MODE for the NSS pin
-
+   //this is the pin chip select which must go off before starting data tx/rx
     GPIO_InitTypeDef cse_pin = {0};
    	cse_pin.Pin = GPIO_PIN_4;
    	cse_pin.Mode = GPIO_MODE_OUTPUT_PP;
