@@ -10,6 +10,7 @@
 #include <time.h>
 
 UART_HandleTypeDef huart2 = {0};
+TIM_HandleTypeDef htim2 = {0};
 
 
 TimerHandle_t blink_timer;
@@ -23,6 +24,13 @@ QueueHandle_t uartQueueH;
 uint8_t receivedByte;
 uint8_t buflen = 0, buffer[32];
 uint8_t flag_uart = 0;
+
+uint8_t buflen2 = 0, buffer2[32];
+
+
+
+
+long current_pos = 0;
 
 void uart_task_parse(void *pvParameters)
 {
@@ -83,6 +91,9 @@ void PID_ALGO_task(void *pvParameters)
 		if(flag_uart == 1)
 		{
 			HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_0);
+			current_pos = __HAL_TIM_GET_COUNTER(&htim2);
+			buflen2 = snprintf((char *)buffer2, sizeof(buffer2), "Current_pos: %li \r\n", current_pos);
+			HAL_UART_Transmit(&huart2, (uint8_t*)buffer2, buflen2, HAL_MAX_DELAY);
 		}
 
 
