@@ -10,7 +10,8 @@
 #include <time.h>
 
 UART_HandleTypeDef huart2 = {0};
-TIM_HandleTypeDef htim2 = {0};
+TIM_HandleTypeDef htim2 = {0}; //tim2 for reading encoder signals
+TIM_HandleTypeDef htim4 = {0}; //tim4 for pwm signal
 
 
 TimerHandle_t blink_timer;
@@ -26,11 +27,23 @@ uint8_t buflen = 0, buffer[32];
 uint8_t flag_uart = 0;
 
 uint8_t buflen2 = 0, buffer2[32];
+uint8_t buflen3 = 0, buffer3[32];
 
-
-
+long new_setpoint, prev_setpoint;
+uint32_t duty = 0;
 
 long current_pos = 0;
+long prev_error = 0;
+long error = 0;
+long error_dif = 0;
+
+long kp= 60, ti = 2, td = 1;
+float ki, kd;
+
+float prop_correc, inte_correc, prev_inte_correc, deriv_correc, total_correc;
+
+float pid_time = 0.001;
+long samples = 0;
 
 void uart_task_parse(void *pvParameters)
 {
@@ -53,8 +66,8 @@ void uart_task_parse(void *pvParameters)
 			{
 
 					//HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
-					int number = atoi(numBuffer);
-					snprintf((char *)buffer, sizeof(buffer), "Setpoint: %d\r\n", number);
+					new_setpoint = atoi(numBuffer);
+					snprintf((char *)buffer, sizeof(buffer), "Setpoint: %li\r\n", new_setpoint);
 					HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen((char*)buffer), HAL_MAX_DELAY);
 					//flag_uart = 0;
 
@@ -92,8 +105,70 @@ void PID_ALGO_task(void *pvParameters)
 		{
 			HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_0);
 			current_pos = __HAL_TIM_GET_COUNTER(&htim2);
-			buflen2 = snprintf((char *)buffer2, sizeof(buffer2), "Current_pos: %li \r\n", current_pos);
-			HAL_UART_Transmit(&huart2, (uint8_t*)buffer2, buflen2, HAL_MAX_DELAY);
+			error = current_pos - new_setpoint;
+
+			if(error < 0)
+			{
+				error = -error;
+			}
+
+			prop_correc = kp*error;
+			if(ti != 0)
+				ki = kp / ti;
+			else
+				ki = 0;
+
+
+			inte_correc = prev_inte_correc + (ki*pid_time*error);
+
+			kd = kp*td;
+			error_dif = error - prev_error;
+
+			deriv_correc = (kd * error_dif) / pid_time;
+
+			total_correc = (prop_correc+inte_correc+deriv_correc) / 10000;
+			if(total_correc > 100)
+				total_correc = 100;
+			if(total_correc < -100)
+				total_correc = -100;
+
+			if(new_setpoint < current_pos){
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+			}
+			if(new_setpoint > current_pos)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
+			}
+			if((current_pos-5 < new_setpoint) && (new_setpoint < current_pos+5))
+			{
+				error = 0;
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
+			}
+
+			duty = total_correc;
+			if(duty < 0)
+				duty = -duty;
+
+			prev_inte_correc = inte_correc;
+			prev_error = error;
+
+			__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, duty);
+
+			if(samples < 500)
+			{
+				buflen3 = snprintf((char*)buffer3, sizeof(buffer3), "%li  %li   %li\r\n", new_setpoint, current_pos, error);
+				HAL_UART_Transmit(&huart2, (uint8_t*)buffer3, buflen3, HAL_MAX_DELAY);
+			}
+
+			samples++;
+			//prev_setpoint = new_setpoint;
+
+
+			//buflen2 = snprintf((char *)buffer2, sizeof(buffer2), "Error: %li \r\n", error);
+			//HAL_UART_Transmit(&huart2, (uint8_t*)buffer2, buflen2, HAL_MAX_DELAY);
 		}
 
 
